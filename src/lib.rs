@@ -1,5 +1,7 @@
 mod image_reader;
+mod solver;
 
 pub fn run() {
-    image_reader::read_image();
+    let queens_table = image_reader::read_image();
+    // queens_table.solve();
 }

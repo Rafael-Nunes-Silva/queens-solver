@@ -1,5 +1,8 @@
 use image::{ImageReader, Rgb};
 
+use super::solver::QueensCell;
+use crate::solver::QueensTable;
+
 fn rgb_to_xyz(r: u8, g: u8, b: u8) -> (f32, f32, f32) {
     let r = r as f32 / 255.0;
     let g = g as f32 / 255.0;
@@ -87,7 +90,13 @@ fn is_black(color: Rgb<u8>) -> bool {
     }
 }
 
-pub fn read_image() {
+pub fn read_image() -> QueensTable {
+    // println!(
+    //     "{}",
+    //     color_similarity(Rgb::from([220, 160, 188]), Rgb::from([222, 160, 189]))
+    // );
+    // return ();
+
     // When in the browser, the input will have to be the byte data of the image
     // image::ImageReader::new(BufReader::new())
 
@@ -99,7 +108,7 @@ pub fn read_image() {
         .expect("Failed to decode image");
     let width = input_image.width();
 
-    let rgb_image = input_image.into_rgb8();
+    let rgb_image = input_image.clone().into_rgb8();
     let n_hor_divisions = {
         let mut most_hor_divisions = 0;
         let mut current_hor_divisions = 0;
@@ -129,170 +138,41 @@ pub fn read_image() {
 
         most_hor_divisions
     };
+    let n_cells = n_hor_divisions - 1;
 
-    
+    let (cells, cells_by_color) = {
+        let cell_width = width / n_cells;
+
+        let mut cells: Vec<Vec<QueensCell>> = Vec::with_capacity(n_cells as usize);
+        let mut cells_by_color: Vec<Vec<QueensCell>> = Vec::with_capacity(n_cells as usize);
+        cells_by_color.resize_with(n_cells as usize, || Vec::new());
+
+        for x in 0..n_cells {
+            cells.push(Vec::new());
+            for y in 0..n_cells {
+                let x_pos = x * cell_width + cell_width / 2;
+                let y_pos = y * cell_width + cell_width / 2;
+                let pixel = rgb_image.get_pixel(x_pos, y_pos);
+
+                cells[x as usize].push(QueensCell::new(*pixel, x, y));
+
+                for color_vec in cells_by_color.iter_mut() {
+                    if color_vec.len() > 0 {
+                        let cell = color_vec.get(0).expect("Failed to get index 0 of color_vec");
+                        if color_similarity(*pixel, cell.color) < 1.0 {
+                            color_vec.push(QueensCell::new(*pixel, x, y));
+                            break;
+                        }
+                    } else {
+                        color_vec.push(QueensCell::new(*pixel, x, y));
+                        break;
+                    }
+                }
+            }
+        }
+
+        (cells, cells_by_color)
+    };
+
+    QueensTable::new(n_cells, cells, cells_by_color)
 }
-
-// use image::{ImageReader, Rgb};
-
-// fn max_f32(f1: f32, f2: f32) -> f32 {
-//     if f1 > f2 {
-//         f1
-//     } else {
-//         f2
-//     }
-// }
-// fn min_f32(f1: f32, f2: f32) -> f32 {
-//     if f1 < f2 {
-//         f1
-//     } else {
-//         f2
-//     }
-// }
-
-// fn rgb_to_hsb(rgb: Rgb<u8>) -> (f32, f32, f32) {
-//     let r = rgb.0[0] as f32 / 255.0;
-//     let g = rgb.0[1] as f32 / 255.0;
-//     let b = rgb.0[2] as f32 / 255.0;
-
-//     if r == 0.0 && g == 0.0 && b == 0.0 {
-//         return (0.0, 0.0, 0.0);
-//     }
-
-//     let c_max = max_f32(r, max_f32(g, b));
-//     let c_min = min_f32(r, min_f32(g, b));
-
-//     let hue = if c_max == c_min {
-//         30.0
-//     } else {
-//         let mut _hue = 0.0;
-//         if r == c_max {
-//             _hue = 60.0 * ((g - b) / (c_max - c_min));
-//         } else if g == c_max {
-//             _hue = 60.0 * (2.0 + ((b - r) / (c_max - c_min)));
-//         } else {
-//             _hue = 60.0 * (4.0 + ((r - g) / (c_max - c_min)));
-//         }
-
-//         if _hue < 0.0 {
-//             _hue += 360.0;
-//         }
-//         _hue
-//     };
-
-//     let saturation = (c_max - c_min) / c_max;
-//     let brightness = c_max;
-
-//     (hue, saturation, brightness)
-// }
-
-// fn color_similarity(rgb_1: Rgb<u8>, rgb_2: Rgb<u8>) -> f32 {
-//     let (hue_1, saturation_1, brightness_1) = rgb_to_hsb(rgb_1);
-//     let (hue_2, saturation_2, brightness_2) = rgb_to_hsb(rgb_2);
-
-//     println!("hue_1: {}\nhue_2: {}", hue_1, hue_2);
-
-//     let hue_distance =// if hue_1 == 0.0 || hue_2 == 0.0 {
-//     //     30.0
-//     // } else {
-//         min_f32(
-//             ((hue_1 - hue_2) as f32).abs(),
-//             360.0 - ((hue_1 - hue_2) as f32).abs(),
-//         );
-//     // };
-//     let saturation_distance = ((saturation_1 - saturation_2) as f32).abs();
-//     let brightness_distance = ((brightness_1 - brightness_2) as f32).abs();
-
-//     println!(
-//         "hue diff: {}\nsaturation diff: {}\nbrightness diff: {}",
-//         hue_distance, saturation_distance, brightness_distance
-//     );
-
-//     // let saturation_weight = if brightness_1 < 0.1 && brightness_2 < 0.1 {
-//     //     0.5
-//     // } else {
-//     //     1.0
-//     // };
-
-//     ((1.0 * hue_distance).powf(2.0)
-//         + (1.0 * saturation_distance).powf(2.0)
-//         + (1.0 * brightness_distance).powf(2.0))
-//     .sqrt()
-// }
-
-// fn is_black(color: Rgb<u8>) -> bool {
-//     if color_similarity(color, Rgb::from([0, 0, 0])) < 30.0 {
-//         true
-//     } else {
-//         false
-//     }
-// }
-
-// pub fn read_image() {
-//     println!(
-//         "(147, 147, 149): {}",
-//         color_similarity(Rgb::from([147, 147, 149]), Rgb::from([0, 0, 0]))
-//     );
-//     println!(
-//         "(237, 202, 170): {}",
-//         color_similarity(Rgb::from([237, 202, 170]), Rgb::from([0, 0, 0]))
-//     );
-//     println!(
-//         "(1, 0, 2): {}",
-//         color_similarity(Rgb::from([1, 0, 2]), Rgb::from([0, 0, 0]))
-//     );
-//     return ();
-
-//     // When in the browser, the input will have to be the byte data of the image
-//     // image::ImageReader::new(BufReader::new())
-
-//     // let input_image = ImageReader::open("./assets/examples/queens_3x3_empty.png")
-//     let input_image = ImageReader::open("./assets/examples/queens_8x8_empty.png")
-//         .expect("Failed to open image file")
-//         .decode()
-//         .expect("Failed to decode image");
-//     let width = input_image.width();
-//     // let height = input_image.height();
-
-//     let rgb_image = input_image.into_rgb8();
-
-//     let mut most_hor_divisions = 0;
-//     let mut current_hor_divisions = 0;
-
-//     let mut row_counter = 0;
-
-//     let mut counter = 0;
-//     // let mut y_counter = 0;
-//     let mut was_previous_black = false;
-//     for pixel in rgb_image.pixels() {
-//         if is_black(*pixel) {
-//             if !was_previous_black {
-//                 was_previous_black = true;
-//                 current_hor_divisions += 1;
-//                 if current_hor_divisions > most_hor_divisions {
-//                     most_hor_divisions = current_hor_divisions;
-//                     println!(
-//                         "row: {} | new high: {} | color: {:?}",
-//                         row_counter, most_hor_divisions, pixel
-//                     );
-//                 }
-//             }
-//         } else {
-//             if was_previous_black {
-//                 println!("not black anymore{:?}", pixel);
-//             }
-//             was_previous_black = false;
-//         }
-
-//         if counter % width == 0 {
-//             row_counter += 1;
-//             current_hor_divisions = 0;
-//             was_previous_black = false;
-//         }
-
-//         counter += 1;
-//         // y_counter += 1;
-//     }
-
-//     println!("most x divisions: {}", most_hor_divisions);
-// }

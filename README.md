@@ -1,2 +1,2 @@
 # queens-solver
-A solver for Linkedin's queens game
+A solver to the Linkedin Queens game

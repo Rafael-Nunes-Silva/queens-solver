@@ -1,7 +1,5 @@
-use image::{ImageReader, Rgb};
-
-use super::solver::QueensCell;
-use crate::solver::QueensTable;
+use super::super::solver::QueensCell;
+use image::Rgb;
 
 fn rgb_to_xyz(r: u8, g: u8, b: u8) -> (f32, f32, f32) {
     let r = r as f32 / 255.0;
@@ -90,34 +88,27 @@ fn is_black(color: Rgb<u8>) -> bool {
     }
 }
 
-pub fn read_image() -> QueensTable {
-    // println!(
-    //     "{}",
-    //     color_similarity(Rgb::from([220, 160, 188]), Rgb::from([222, 160, 189]))
-    // );
-    // return ();
-
-    // When in the browser, the input will have to be the byte data of the image
-    // image::ImageReader::new(BufReader::new())
-
-    // let input_image = ImageReader::open("./assets/examples/queens_3x3_empty.png")
-    // let input_image = ImageReader::open("./assets/examples/queens_8x8_empty.png")
-    let input_image = ImageReader::open("./assets/examples/queens_10x10_empty.jpg")
-        .expect("Failed to open image file")
-        .decode()
-        .expect("Failed to decode image");
-    let width = input_image.width();
+pub fn read_image(image_bytes: &[u8]) -> (usize, Vec<Vec<QueensCell>>, Vec<Vec<QueensCell>>) {
+    let input_image = image::load_from_memory(image_bytes).expect("Failed to open image file");
+    let width = input_image.width() as usize;
 
     let rgb_image = input_image.clone().into_rgb8();
     let n_hor_divisions = {
         let mut most_hor_divisions = 0;
         let mut current_hor_divisions = 0;
 
+        let mut is_border = false;
+        let mut current_border_width = 0;
+        let mut border_widths = Vec::new();
+
         let mut counter = 0;
         let mut was_previous_black = false;
         for pixel in rgb_image.pixels() {
             if is_black(*pixel) {
                 if !was_previous_black {
+                    is_border = true;
+                    current_border_width += 1;
+
                     was_previous_black = true;
                     current_hor_divisions += 1;
                     if current_hor_divisions > most_hor_divisions {
@@ -125,6 +116,10 @@ pub fn read_image() -> QueensTable {
                     }
                 }
             } else {
+                if is_border {
+                    border_widths.push(current_border_width);
+                    current_border_width = 0;
+                }
                 was_previous_black = false;
             }
 
@@ -140,8 +135,11 @@ pub fn read_image() -> QueensTable {
     };
     let n_cells = n_hor_divisions - 1;
 
-    let cells_by_color = {
+    let (cells, cells_by_color) = {
         let cell_width = width / n_cells;
+
+        let mut cells: Vec<Vec<QueensCell>> = Vec::with_capacity(n_cells as usize);
+        cells.resize_with(n_cells as usize, || Vec::with_capacity(n_cells as usize));
 
         let mut cells_by_color: Vec<Vec<QueensCell>> = Vec::with_capacity(n_cells as usize);
         cells_by_color.resize_with(n_cells as usize, || Vec::new());
@@ -150,7 +148,9 @@ pub fn read_image() -> QueensTable {
             for y in 0..n_cells {
                 let x_pos = x * cell_width + cell_width / 2;
                 let y_pos = y * cell_width + cell_width / 2;
-                let pixel = rgb_image.get_pixel(x_pos, y_pos);
+                let pixel = rgb_image.get_pixel(x_pos as u32, y_pos as u32);
+
+                cells[x as usize].push(QueensCell::new(*pixel, x, y));
 
                 for color_vec in cells_by_color.iter_mut() {
                     if color_vec.len() > 0 {
@@ -169,8 +169,8 @@ pub fn read_image() -> QueensTable {
             }
         }
 
-        cells_by_color
+        (cells, cells_by_color)
     };
 
-    QueensTable::new(n_cells, cells_by_color)
+    (n_cells, cells, cells_by_color)
 }

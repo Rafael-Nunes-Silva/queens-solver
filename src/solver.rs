@@ -39,7 +39,7 @@ impl ValidationTable {
             .expect("Failed to get cell.x from validation_table")
     }
 
-    fn play_cell(&self, x: u32, y: u32) -> Self {
+    fn play_cell(&self, x: usize, y: usize) -> Self {
         Self {
             cells: self
                 .cells
@@ -70,25 +70,34 @@ impl ValidationTable {
 #[derive(Clone)]
 pub struct QueensCell {
     pub color: Rgb<u8>,
-    x: u32,
-    y: u32,
+    x: usize,
+    y: usize,
 }
 impl QueensCell {
-    pub fn new(color: Rgb<u8>, x: u32, y: u32) -> Self {
+    pub fn new(color: Rgb<u8>, x: usize, y: usize) -> Self {
         Self { color, x, y }
     }
 }
 
 pub struct QueensTable {
-    width: u32,
+    width: usize,
+    cells: Vec<Vec<QueensCell>>,
     cells_by_color: Vec<Vec<QueensCell>>,
-    // validation_table: Vec<Vec<bool>>,
+    played_positions: Vec<(usize, usize)>,
+    validation_tables: Vec<ValidationTable>,
 }
 impl QueensTable {
-    pub fn new(width: u32, cells_by_color: Vec<Vec<QueensCell>>) -> Self {
+    pub fn new(
+        width: usize,
+        cells: Vec<Vec<QueensCell>>,
+        cells_by_color: Vec<Vec<QueensCell>>,
+    ) -> Self {
         let mut table = Self {
             width,
+            cells,
             cells_by_color,
+            played_positions: Vec::new(),
+            validation_tables: Vec::new(),
         };
 
         table.cells_by_color.sort_by(|a, b| a.len().cmp(&b.len()));
@@ -96,7 +105,12 @@ impl QueensTable {
         table
     }
 
-    pub fn solve(&mut self) {
+    pub fn from_image(image_bytes: &[u8]) -> Self {
+        let (width, cells, cells_by_color) = super::image_reader::read_image(image_bytes);
+        QueensTable::new(width, cells, cells_by_color)
+    }
+
+    pub fn solve(&mut self) -> &mut Self {
         let mut color_index: usize = 0;
         let mut cell_index_stack: Vec<usize> = Vec::with_capacity(self.cells_by_color.len());
         cell_index_stack.resize_with(self.cells_by_color.len(), || 0);
@@ -107,12 +121,8 @@ impl QueensTable {
             ValidationTable::new(self.width as usize)
         });
 
+        let mut played_positions = Vec::new();
         while !validation_tables[color_index].validate() {
-            println!(
-                "color_index: {}\nindex_stack: {}",
-                color_index, cell_index_stack[color_index]
-            );
-
             let cells = self.cells_by_color[color_index].clone();
 
             let validation_table = &validation_tables[color_index];
@@ -124,42 +134,50 @@ impl QueensTable {
                 let y = cell.y;
 
                 if validation_table.validate_cell(cell) {
-                    println!("Played at: {}, {}", x, y);
-
                     played = true;
                     color_index += 1;
 
-                    let updated_validation_table = validation_table.play_cell(cell.x, cell.y);
+                    played_positions.push((x, y));
 
-                    for row in &updated_validation_table.cells {
-                        let row_str = row
-                            .iter()
-                            .map(|c| if *c { "+" } else { "#" })
-                            .collect::<Vec<&str>>()
-                            .join(" ");
-                        println!("{}", row_str);
-                    }
+                    let updated_validation_table = validation_table.play_cell(cell.x, cell.y);
 
                     validation_tables[color_index] = updated_validation_table;
                     break;
                 }
-                println!("Skipping: {}, {}", x, y);
                 cell_index_stack[if played { color_index - 1 } else { color_index }] += 1;
             }
             if !played {
-                println!("End, has to backtrack from here");
+                played_positions.pop();
                 cell_index_stack[color_index] = 0;
                 if color_index == 0 {
-                    println!("THIS SHOULD NEVER BE TRUE");
-                    break;
+                    panic!("Could not solve queens");
                 }
                 color_index -= 1;
                 cell_index_stack[color_index] += 1;
             }
         }
 
-        for cell_list in &self.cells_by_color {
-            println!("{}", cell_list.len());
-        }
+        self.played_positions = played_positions;
+        self.validation_tables = validation_tables;
+
+        self
     }
+
+    pub fn to_images(&self) -> Vec<String> {
+        let mut strs = Vec::new();
+        for row in &self.cells {
+            let mut str = String::new();
+            for cell in row {
+                if self.played_positions.contains(&(cell.y, cell.x)) {
+                    str.push_str("@ ");
+                } else {
+                    str.push_str("# ");
+                }
+            }
+            strs.push(str);
+        }
+        strs
+    }
+
+    pub fn to_gif() {}
 }

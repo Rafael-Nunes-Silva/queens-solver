@@ -140,25 +140,23 @@ pub fn read_image() -> QueensTable {
     };
     let n_cells = n_hor_divisions - 1;
 
-    let (cells, cells_by_color) = {
+    let cells_by_color = {
         let cell_width = width / n_cells;
 
-        let mut cells: Vec<Vec<QueensCell>> = Vec::with_capacity(n_cells as usize);
         let mut cells_by_color: Vec<Vec<QueensCell>> = Vec::with_capacity(n_cells as usize);
         cells_by_color.resize_with(n_cells as usize, || Vec::new());
 
         for x in 0..n_cells {
-            cells.push(Vec::new());
             for y in 0..n_cells {
                 let x_pos = x * cell_width + cell_width / 2;
                 let y_pos = y * cell_width + cell_width / 2;
                 let pixel = rgb_image.get_pixel(x_pos, y_pos);
 
-                cells[x as usize].push(QueensCell::new(*pixel, x, y));
-
                 for color_vec in cells_by_color.iter_mut() {
                     if color_vec.len() > 0 {
-                        let cell = color_vec.get(0).expect("Failed to get index 0 of color_vec");
+                        let cell = color_vec
+                            .get(0)
+                            .expect("Failed to get index 0 of color_vec");
                         if color_similarity(*pixel, cell.color) < 1.0 {
                             color_vec.push(QueensCell::new(*pixel, x, y));
                             break;
@@ -171,8 +169,8 @@ pub fn read_image() -> QueensTable {
             }
         }
 
-        (cells, cells_by_color)
+        cells_by_color
     };
 
-    QueensTable::new(n_cells, cells, cells_by_color)
+    QueensTable::new(n_cells, cells_by_color)
 }

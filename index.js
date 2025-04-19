@@ -29,21 +29,29 @@ init().then(function () {
 
     document.getElementById("image-input").addEventListener("change", async function (event) {
         const file = event.target.files[0];
-        // event.target.value = "";
 
-        update_input_image(file);
+        if (file) {
+            update_input_image(file);
 
-        const arrayBuffer = await file.arrayBuffer();
-        const uint8Array = new Uint8Array(arrayBuffer);
+            const arrayBuffer = await file.arrayBuffer();
+            const uint8Array = new Uint8Array(arrayBuffer);
 
-        const strs = run(uint8Array);
-        for (let i = 0; i < strs.length; i++) {
-            document.body.innerHTML += `<p>${strs[i]}</p>`;
+            const images_bytes = run(uint8Array);
+            for (let i = 0; i < images_bytes.length; i++) {
+                const image = images_bytes[i];
+                const blob = new Blob([image]);
+                const url = URL.createObjectURL(blob);
+
+                const newImage = document.createElement("img");
+                newImage.setAttribute("src", url);
+                document.getElementById("input-output-div").appendChild(newImage);
+            }
+
+            // const gif_bytes = run(uint8Array);
+            // const blob = new Blob([gif_bytes], { type: file.type });
+            // update_output_image(blob);
+
+            event.target.value = null;
         }
-        // const gif_bytes = run(uint8Array);
-        // const blob = new Blob([gif_bytes], { type: file.type });
-        // update_output_image(blob);
-
-        event.target.value = null;
     });
 });

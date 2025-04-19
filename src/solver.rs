@@ -1,4 +1,6 @@
-use image::Rgb;
+use std::io::Cursor;
+
+use image::{DynamicImage, GenericImage, GenericImageView, ImageFormat, Rgb, Rgba};
 
 struct ValidationTable {
     cells: Vec<Vec<bool>>,
@@ -39,7 +41,7 @@ impl ValidationTable {
             .expect("Failed to get cell.x from validation_table")
     }
 
-    fn play_cell(&self, x: usize, y: usize) -> Self {
+    fn play_cell(&mut self, x: usize, y: usize) -> Self {
         Self {
             cells: self
                 .cells
@@ -125,7 +127,9 @@ impl QueensTable {
         while !validation_tables[color_index].validate() {
             let cells = self.cells_by_color[color_index].clone();
 
-            let validation_table = &validation_tables[color_index];
+            let validation_table = validation_tables
+                .get_mut(color_index)
+                .expect("Failed to get color_index from validation_tables");
 
             let mut played = false;
             while cell_index_stack[color_index] < cells.len() {
@@ -163,21 +167,100 @@ impl QueensTable {
         self
     }
 
-    pub fn to_images(&self) -> Vec<String> {
-        let mut strs = Vec::new();
-        for row in &self.cells {
-            let mut str = String::new();
-            for cell in row {
-                if self.played_positions.contains(&(cell.y, cell.x)) {
-                    str.push_str("@ ");
-                } else {
-                    str.push_str("# ");
+    fn to_image(&self, table: &ValidationTable) -> Vec<u8> {
+        let division_size: u32 = 5;
+        let cell_size: u32 = 90;
+        let total_image_size: u32 =
+            (self.width as u32 * cell_size) + ((self.width as u32 + 1) * division_size);
+
+        let mut image = DynamicImage::new_rgb8(total_image_size, total_image_size);
+
+        let crown_bytes: &[u8] = include_bytes!("../assets/crown.png");
+        let crown_image =
+            image::load_from_memory(crown_bytes).expect("Failed to load the crown image");
+
+        let cross_bytes: &[u8] = include_bytes!("../assets/cross.png");
+        let cross_image =
+            image::load_from_memory(cross_bytes).expect("Failed to load the cross image");
+
+        for (row_index, row) in self.cells.iter().enumerate() {
+            for (cell_index, cell) in row.iter().enumerate() {
+                for x in 0..cell_size {
+                    for y in 0..cell_size {
+                        let x_offset = x
+                            + cell_index as u32 * cell_size
+                            + (cell_index as u32 + 1) * division_size;
+
+                        let y_offset = y
+                            + row_index as u32 * cell_size
+                            + (row_index as u32 + 1) * division_size;
+
+                        if !table.cells[cell_index][row_index] {
+                            image.put_pixel(
+                                y_offset,
+                                x_offset,
+                                Rgba([cell.color[0], cell.color[1], cell.color[2], 255]),
+                            );
+                            continue;
+                        }
+
+                        let pixel_color = {
+                            if self.played_positions.contains(&(row_index, cell_index)) {
+                                let crown_pixel = crown_image.get_pixel(y, x);
+                                let crown_alpha: f32 = crown_pixel[3] as f32 / 255.0;
+
+                                Rgba([
+                                    (crown_pixel[0] as f32 * crown_alpha
+                                        + cell.color[0] as f32 * (1.0 - crown_alpha))
+                                        as u8,
+                                    (crown_pixel[1] as f32 * crown_alpha
+                                        + cell.color[1] as f32 * (1.0 - crown_alpha))
+                                        as u8,
+                                    (crown_pixel[2] as f32 * crown_alpha
+                                        + cell.color[2] as f32 * (1.0 - crown_alpha))
+                                        as u8,
+                                    255,
+                                ])
+                            } else {
+                                let cross_pixel = cross_image.get_pixel(y, x);
+                                let cross_alpha: f32 = cross_pixel[3] as f32 / 255.0;
+
+                                Rgba([
+                                    (cross_pixel[0] as f32 * cross_alpha
+                                        + cell.color[0] as f32 * (1.0 - cross_alpha))
+                                        as u8,
+                                    (cross_pixel[1] as f32 * cross_alpha
+                                        + cell.color[1] as f32 * (1.0 - cross_alpha))
+                                        as u8,
+                                    (cross_pixel[2] as f32 * cross_alpha
+                                        + cell.color[2] as f32 * (1.0 - cross_alpha))
+                                        as u8,
+                                    255,
+                                ])
+                            }
+                        };
+
+                        image.put_pixel(y_offset, x_offset, pixel_color);
+                    }
                 }
             }
-            strs.push(str);
         }
-        strs
+
+        let mut bytes: Vec<u8> = Vec::new();
+        image
+            .write_to(&mut Cursor::new(&mut bytes), ImageFormat::Png)
+            .unwrap();
+
+        bytes
     }
 
-    pub fn to_gif() {}
+    pub fn to_images(&self) -> Vec<Vec<u8>> {
+        let mut images = Vec::with_capacity(self.validation_tables.len());
+        for table in &self.validation_tables {
+            images.push(self.to_image(table));
+        }
+        images
+    }
+
+    // pub fn to_gif() {}
 }

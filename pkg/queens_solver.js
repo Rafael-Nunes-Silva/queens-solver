@@ -50,12 +50,29 @@ function getArrayJsValueFromWasm0(ptr, len) {
  * @param {Uint8Array} image_bytes
  * @returns {any[]}
  */
-export function run(image_bytes) {
+export function get_images(image_bytes) {
     const ptr0 = passArray8ToWasm0(image_bytes, wasm.__wbindgen_malloc);
     const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.run(ptr0, len0);
+    const ret = wasm.get_images(ptr0, len0);
     var v2 = getArrayJsValueFromWasm0(ret[0], ret[1]).slice();
     wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+    return v2;
+}
+
+function getArrayU8FromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return getUint8ArrayMemory0().subarray(ptr / 1, ptr / 1 + len);
+}
+/**
+ * @param {Uint8Array} image_bytes
+ * @returns {Uint8Array}
+ */
+export function get_gif(image_bytes) {
+    const ptr0 = passArray8ToWasm0(image_bytes, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.get_gif(ptr0, len0);
+    var v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
     return v2;
 }
 

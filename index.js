@@ -1,8 +1,9 @@
-import init, { run } from "./pkg/queens_solver.js";
+import init, { get_images, get_gif } from "./pkg/queens_solver.js";
 
 
 
-var current_input_url, current_output_url;
+const errorMessageDiv = document.getElementById("error-message");
+var current_input_url, current_output_img_url, current_output_gif_url;
 
 function update_input_image(image) {
     if (current_input_url) {
@@ -15,19 +16,35 @@ function update_input_image(image) {
 }
 
 function update_output_image(image) {
-    if (current_output_url) {
-        URL.revokeObjectURL(current_output_url);
+    if (current_output_img_url) {
+        URL.revokeObjectURL(current_output_img_url);
     }
 
-    current_output_url = URL.createObjectURL(image);
+    current_output_img_url = URL.createObjectURL(image);
     const imagePreview = document.getElementById("output-img");
-    imagePreview.src = current_output_url;
+    imagePreview.src = current_output_img_url;
+}
+
+function update_output_gif(gif) {
+    if (current_output_gif_url) {
+        URL.revokeObjectURL(current_output_gif_url);
+    }
+
+    current_output_gif_url = URL.createObjectURL(gif);
+    const gifPreview = document.getElementById("output-gif");
+    gifPreview.src = current_output_gif_url;
+}
+
+function showError(message) {
+    errorMessageDiv.textContent = message;
+    errorMessageDiv.style.display = "block";
 }
 
 init().then(function () {
     console.log("WASM loaded!");
 
     document.getElementById("image-input").addEventListener("change", async function (event) {
+        errorMessageDiv.style.display = "none";
         const file = event.target.files[0];
 
         if (file) {
@@ -36,20 +53,15 @@ init().then(function () {
             const arrayBuffer = await file.arrayBuffer();
             const uint8Array = new Uint8Array(arrayBuffer);
 
-            const images_bytes = run(uint8Array);
-            for (let i = 0; i < images_bytes.length; i++) {
-                const image = images_bytes[i];
-                const blob = new Blob([image]);
-                const url = URL.createObjectURL(blob);
+            try {
+                const images_bytes = get_images(uint8Array);
+                update_output_image(new Blob([images_bytes[images_bytes.length - 1]]));
 
-                const newImage = document.createElement("img");
-                newImage.setAttribute("src", url);
-                document.getElementById("input-output-div").appendChild(newImage);
+                const gif_bytes = get_gif(uint8Array);
+                update_output_gif(new Blob([gif_bytes]));
+            } catch (error) {
+                showError("The input image must be an empty Queens game");
             }
-
-            // const gif_bytes = run(uint8Array);
-            // const blob = new Blob([gif_bytes], { type: file.type });
-            // update_output_image(blob);
 
             event.target.value = null;
         }

@@ -1,6 +1,8 @@
+use image::{
+    codecs::gif::{GifEncoder, Repeat},
+    DynamicImage, Frame, GenericImage, GenericImageView, ImageFormat, Rgb, Rgba,
+};
 use std::io::Cursor;
-
-use image::{DynamicImage, GenericImage, GenericImageView, ImageFormat, Rgb, Rgba};
 
 struct ValidationTable {
     cells: Vec<Vec<bool>>,
@@ -262,5 +264,27 @@ impl QueensTable {
         images
     }
 
-    // pub fn to_gif() {}
+    pub fn to_gif(&self) -> Vec<u8> {
+        let mut gif_bytes: Vec<u8> = Vec::new();
+
+        {
+            let mut writer = Cursor::new(&mut gif_bytes);
+            let mut encoder = GifEncoder::new_with_speed(&mut writer, 10);
+
+            encoder
+                .set_repeat(Repeat::Infinite)
+                .expect("Failed to set repeat behaviour");
+
+            for image in self.to_images() {
+                let frame = Frame::new(
+                    image::load_from_memory(&image)
+                        .expect("Failed to load image from memory")
+                        .to_rgba8(),
+                );
+                encoder.encode_frame(frame).expect("Failed to encode frame");
+            }
+        }
+
+        gif_bytes
+    }
 }

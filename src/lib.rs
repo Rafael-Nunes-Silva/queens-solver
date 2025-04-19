@@ -6,7 +6,7 @@ use solver::QueensTable;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
-pub fn run(image_bytes: &[u8]) -> Vec<JsValue> {
+pub fn get_images(image_bytes: &[u8]) -> Vec<JsValue> {
     let mut queens_table = QueensTable::from_image(image_bytes);
     queens_table
         .solve()
@@ -19,4 +19,10 @@ pub fn run(image_bytes: &[u8]) -> Vec<JsValue> {
             uint8array.into()
         })
         .collect()
+}
+
+#[wasm_bindgen]
+pub fn get_gif(image_bytes: &[u8]) -> Vec<u8> {
+    let mut queens_table = QueensTable::from_image(image_bytes);
+    queens_table.solve().to_gif()
 }
